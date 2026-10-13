@@ -52,9 +52,46 @@ export default function NotificationBell() {
     }
   }
 
-  useEffect(() => {
-    void loadNotifications();
-  }, []);
+  
+useEffect(() => {
+  let active = true;
+  let channel: ReturnType<typeof supabase.channel> | undefined;
+
+  void loadNotifications();
+
+  async function subscribeToNotifications() {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (!active || authError || !user) return;
+
+    channel = supabase
+      .channel(`notifications-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          if (active) void loadNotifications();
+        }
+      )
+      .subscribe();
+  }
+
+  void subscribeToNotifications();
+
+  return () => {
+    active = false;
+    if (channel) void supabase.removeChannel(channel);
+  };
+}, []);
+
 
   async function markAsRead(id: string) {
     const {
