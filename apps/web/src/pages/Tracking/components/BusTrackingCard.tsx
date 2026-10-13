@@ -19,6 +19,8 @@ interface BusTrackingCardProps {
   destination: string;
   totalDistance: number | null;
   estimatedTime: number | null;
+  remainingDistanceKm: number | null;
+  etaMinutes: number | null;
 }
 
 export default function BusTrackingCard({
@@ -32,9 +34,15 @@ export default function BusTrackingCard({
   destination,
   totalDistance,
   estimatedTime,
+  remainingDistanceKm,
+  etaMinutes,
 }: BusTrackingCardProps) {
   const isActive = status.toLowerCase() === "started";
-
+  const hasValidSpeed = Number.isFinite(speed) && speed > 0;
+  const hasRouteEstimate =
+    estimatedTime !== null &&
+    Number.isFinite(estimatedTime) &&
+    estimatedTime > 0;
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
@@ -104,22 +112,59 @@ export default function BusTrackingCard({
           </div>
         </div>
 
+
+<div className="flex items-center gap-3">
+  <Clock3 className="h-5 w-5 text-gray-400" />
+  <div>
+    <p className="text-xs font-medium text-gray-500">
+      Estimated Route Time
+    </p>
+    <p className="text-sm font-semibold text-gray-900">
+      {hasRouteEstimate
+        ? `${estimatedTime} minutes`
+        : "Not available"}
+    </p>
+    <p className="text-xs text-gray-500">
+      {hasValidSpeed
+        ? `Live speed: ${speed} km/h`
+        : "Waiting for reliable GPS speed"}
+    </p>
+  </div>
+</div>
+
+        {/* Remaining Distance */}
         <div className="flex items-center gap-3">
-          <Clock3 className="h-5 w-5 text-gray-400" />
+          <RouteIcon className="h-5 w-5 text-blue-500" />
           <div>
             <p className="text-xs font-medium text-gray-500">
-              Estimated Route Time
+              Remaining Distance
             </p>
             <p className="text-sm font-semibold text-gray-900">
-              {estimatedTime !== null
-                ? `${estimatedTime} minutes`
-                : "Not available"}
-            </p>
-            <p className="text-xs text-gray-500">
-              Stored route estimate; not a live traffic prediction.
+              {remainingDistanceKm !== null
+                ? `${remainingDistanceKm} km`
+                : "Waiting for GPS"}
             </p>
           </div>
         </div>
+
+        {/* Live ETA */}
+        <div className="flex items-center gap-3">
+          <Clock3 className="h-5 w-5 text-blue-500" />
+          <div>
+            <p className="text-xs font-medium text-gray-500">
+              Live Estimated Arrival
+            </p>
+            <p className="text-sm font-semibold text-gray-900">
+              {etaMinutes !== null
+                ? `${etaMinutes} minutes`
+                : "Calculating..."}
+            </p>
+            <p className="text-xs text-gray-500">
+              Based on current GPS and speed
+            </p>
+          </div>
+        </div>
+
 
         <div className="flex items-center gap-3">
           <Gauge className="h-5 w-5 text-gray-400" />

@@ -35,6 +35,7 @@ type Driver = {
   name: string | null;
 };
 
+
 type Route = {
   id: string;
   route_name: string;
@@ -42,7 +43,10 @@ type Route = {
   destination: string;
   total_distance: number | null;
   estimated_time: number | null;
+  destination_latitude: number | null;
+  destination_longitude: number | null;
 };
+
 
 type BusLocation = {
   id: string;
@@ -64,6 +68,30 @@ type TrackingBus = {
   route: Route | null;
   location: BusLocation | null;
 };
+
+// STEP 10 FUNCTION — INGA PASTE PANNU
+function calculateDistanceKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const toRadians = (degrees: number) =>
+    (degrees * Math.PI) / 180;
+
+  const earthRadiusKm = 6371;
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(lat1)) *
+      Math.cos(toRadians(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+
+  return earthRadiusKm * 2 *
+    Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 export default function LiveTracking() {
   const [trackingBuses, setTrackingBuses] = useState<TrackingBus[]>([]);
@@ -176,9 +204,16 @@ export default function LiveTracking() {
           error: routeError,
         } = await supabase
           .from("routes")
-          .select(
-            "id, route_name, source, destination, total_distance, estimated_time"
-          )
+          .select(`
+            id,
+            route_name,
+            source,
+            destination,
+            total_distance,
+            estimated_time,
+            destination_latitude,
+            destination_longitude
+          `)
           .in("id", routeIds);
 
         if (routeError) {
@@ -436,6 +471,59 @@ const onRoute = uniqueActiveBuses.filter(
   // =====================================================
 
   const primaryBus = trackingBuses[0];
+
+const remainingDistanceKm = (() => {
+  const location = primaryBus?.location;
+  const route = primaryBus?.route;
+
+  if (
+    !location ||
+    !route ||
+    route.destination_latitude == null ||
+    route.destination_longitude == null
+  ) {
+    return null;
+  }
+
+  if (
+    !Number.isFinite(location.latitude) ||
+    !Number.isFinite(location.longitude)
+  ) {
+    return null;
+  }
+
+  if (
+    location.accuracy != null &&
+    location.accuracy > 100
+  ) {
+    return null;
+  }
+
+  return Number(
+    calculateDistanceKm(
+      location.latitude,
+      location.longitude,
+      route.destination_latitude,
+      route.destination_longitude
+    ).toFixed(2)
+  );
+})();
+
+const etaMinutes = (() => {
+  const speed = primaryBus?.location?.speed;
+
+  if (
+    remainingDistanceKm == null ||
+    speed == null ||
+    !Number.isFinite(speed) ||
+    speed < 5
+  ) {
+    return null;
+  }
+
+  return Math.ceil((remainingDistanceKm / speed) * 60);
+})();
+
   const gpsAgeSeconds = primaryBus?.location?.recorded_at
   ? Math.max(
       0,
@@ -712,7 +800,9 @@ const isGpsStale =
                         destination={primaryBus.route?.destination || "Unknown"}
                         totalDistance={primaryBus.route?.total_distance ?? null}
                         estimatedTime={primaryBus.route?.estimated_time ?? null}
-                        />
+                        remainingDistanceKm={remainingDistanceKm}
+                        etaMinutes={etaMinutes}
+                      />
 
                       {/* Last Updated */}
 

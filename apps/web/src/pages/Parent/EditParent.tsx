@@ -44,6 +44,7 @@ export default function EditParent() {
     relationship: "",
     studentId: "",
     address: "",
+    newPassword: "",
   });
 
   // =====================================================
@@ -109,6 +110,7 @@ export default function EditParent() {
         relationship: parent.relationship || "",
         studentId: parent.student_id || "",
         address: parent.address || "",
+        newPassword: "",
       });
     } catch (err: any) {
       console.error("Failed to load parent:", err);
@@ -224,6 +226,7 @@ export default function EditParent() {
               relationship: form.relationship,
               student_id: form.studentId,
               address: form.address.trim(),
+              new_password: form.newPassword?.trim() || undefined,
             },
           }
         );
@@ -448,6 +451,30 @@ export default function EditParent() {
                   />
                 </div>
               </div>
+
+
+{/* NEW PASSWORD */}
+<div>
+  <label className="mb-2 block text-sm font-medium text-slate-700">
+    New Password (Optional)
+  </label>
+
+  <input
+    type="password"
+    name="newPassword"
+    value={form.newPassword}
+    onChange={handleChange}
+    placeholder="Enter new password"
+    autoComplete="new-password"
+    minLength={8}
+    className="w-full h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+  />
+
+  <p className="mt-1 text-xs text-slate-500">
+    Leave blank to keep the current password.
+  </p>
+</div>
+
 
               {/* PHONE */}
 
