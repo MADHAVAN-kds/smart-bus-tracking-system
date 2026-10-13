@@ -309,6 +309,96 @@ export default function LiveTracking() {
             latestLocationByTrip.get(trip.id) || null,
         })
       );
+      
+      // Notify parents when their bus is within 200 metres
+      // of the route destination. Only process fresh, accurate GPS.
+      for (const item of combinedData) {
+        const { trip, location, route } = item;
+
+        if (
+          !location ||
+          !route ||
+          !trip.start_time ||
+          route.destination_latitude == null ||
+          route.destination_longitude == null ||
+          !location.recorded_at ||
+          (location.accuracy != null && location.accuracy > 100)
+        ) {
+          continue;
+        }
+
+        const gpsAge =
+          Date.now() - new Date(location.recorded_at).getTime();
+
+        if (gpsAge < 0 || gpsAge > 120_000) continue;
+
+        const distanceKm = calculateDistanceKm(
+          location.latitude,
+          location.longitude,
+          route.destination_latitude,
+          route.destination_longitude
+        );
+
+        if (distanceKm > 0.2) continue;
+
+        const { data: students, error: studentsError } =
+          await supabase
+            .from("students")
+            .select("id")
+            .eq("bus_id", trip.bus_id);
+
+        if (studentsError || !students?.length) continue;
+
+        const { data: parents, error: parentsError } =
+          await supabase
+            .from("parents")
+            .select("profile_id")
+            .in(
+              "student_id",
+              students.map((student) => student.id)
+            );
+
+        if (parentsError || !parents?.length) continue;
+
+        const parentIds = [
+          ...new Set(
+            parents
+              .map((parent) => parent.profile_id)
+              .filter(Boolean)
+          ),
+        ];
+
+        for (const parentId of parentIds) {
+          const { data: existing, error: checkError } =
+            await supabase
+              .from("notifications")
+              .select("id")
+              .eq("user_id", parentId)
+              .eq("type", "bus_arriving_soon")
+              .gte("created_at", trip.start_time)
+              .limit(1);
+
+          if (checkError || existing?.length) continue;
+
+          const { error: insertError } = await supabase
+            .from("notifications")
+            .insert({
+              user_id: parentId,
+              title: "Bus Arriving Soon",
+              message:
+                "Your bus is within 200 metres of the bus stop.",
+              type: "bus_arriving_soon",
+              is_read: false,
+            });
+
+          if (insertError) {
+            console.error(
+              "Arrival notification failed:",
+              insertError.message
+            );
+          }
+        }
+      }
 
       console.log(
         "Live tracking data:",
